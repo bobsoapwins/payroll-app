@@ -1,0 +1,922 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="date-or-empty">
+    <xs:union memberTypes="xs:date empty-string" />
+  </xs:simpleType>
+  <xs:simpleType name="decimal-or-empty">
+    <xs:union memberTypes="two-decimals empty-string" />
+  </xs:simpleType>
+  <xs:simpleType name="decimal-gt-zero-or-empty">
+    <xs:union memberTypes="two-decimals-gt-zero empty-string" />
+  </xs:simpleType>
+  <xs:simpleType name="integer-or-empty">
+    <xs:union memberTypes="xs:nonNegativeInteger empty-string" />
+  </xs:simpleType>
+  <xs:simpleType name="two-decimals">
+    <xs:restriction base="xs:decimal">
+      <xs:fractionDigits value="2" />
+      <xs:minInclusive value="0" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="two-decimals-gt-zero">
+    <xs:restriction base="xs:decimal">
+      <xs:fractionDigits value="2" />
+      <xs:minExclusive value="0" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="two-chars-or-empty">
+    <xs:union memberTypes="two-chars empty-string" />
+  </xs:simpleType>
+  <xs:simpleType name="max-fifty-chars-or-empty">
+    <xs:union memberTypes="max-fifty-chars empty-string" />
+  </xs:simpleType>
+  <xs:simpleType name="max-twofiftyfive-chars-or-empty">
+    <xs:union memberTypes="max-twofiftyfive-chars empty-string" />
+  </xs:simpleType>
+  <xs:simpleType name="max-fivehundred-chars-or-empty">
+    <xs:union memberTypes="max-fivehundred-chars empty-string" />
+  </xs:simpleType>
+  <xs:simpleType name="two-chars">
+    <xs:restriction base="xs:string">
+      <xs:length value="2" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="max-fifty-chars">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1" />
+      <xs:maxLength value="50" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="max-twofiftyfive-chars">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1" />
+      <xs:maxLength value="255" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="max-fivehundred-chars">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1" />
+      <xs:maxLength value="500" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="empty-string">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="daily-hours">
+    <xs:restriction base="xs:decimal">
+      <xs:totalDigits value="4" />
+      <xs:fractionDigits value="2" />
+      <xs:minInclusive value="0" />
+      <xs:maxInclusive value="24" />
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="WaPWCPR">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="projectIntent" minOccurs="1">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="intentId" type="xs:unsignedInt" minOccurs="1">
+                <xs:annotation>
+                  <xs:documentation>
+                    Required. The unique identifier assigned when filing the Statement of Intent to Pay Prevailing Wages (Intent) form filed with the Prevailing Wage Program of the Washington State Department of Labor and Industries (LNI) for work on a public works project. The payroll information provided in this file will be used to create the certified payroll report(s) for the project.
+                  </xs:documentation>
+                </xs:annotation>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="payroll" minOccurs="1">
+          <xs:annotation>
+            <xs:documentation>
+              Required. The collection of payroll information for work that was performed on the public works project.
+            </xs:documentation>
+          </xs:annotation>
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="payrollWeek" minOccurs="1" maxOccurs="unbounded">
+                <xs:annotation>
+                  <xs:documentation>
+                    Required. The collection of payroll information for the one week of payroll data in the file. Multiple unique payrollWeek element collections may be included in one file.
+                  </xs:documentation>
+                </xs:annotation>
+                <xs:complexType>
+                  <xs:all>
+                    <xs:element name="endOfWeekDate" type="xs:date" minOccurs="1">
+                      <xs:annotation>
+                        <xs:documentation>
+                          Required. The date of the last day of the payroll week (yyyy-mm-dd). All subsequent certified payroll reports filed for the same intent must have the same end of week weekday (ex: Saturday).
+                        </xs:documentation>
+                      </xs:annotation>
+                    </xs:element>
+                    <xs:element name="noWorkPerformFlag" minOccurs="0" type="xs:boolean">
+                      <xs:annotation>
+                        <xs:documentation>
+                          Not required. If included, must be True or False. False indicates work was performed by employees for the week. True indicates no work was performed by employees.
+                        </xs:documentation>
+                      </xs:annotation>
+                    </xs:element>
+                    <xs:element name="amendedFlag" type="xs:boolean" minOccurs="0" default="false">
+                      <xs:annotation>
+                        <xs:documentation>
+                          Not required. If included, must be True or False. False indicates the payroll week hasn’t been reported yet. True indicates the week was previously filed and the provided information amends the existing certified payroll report. If not included, the system will automatically identify if it is an amendment or not.
+                        </xs:documentation>
+                      </xs:annotation>
+                    </xs:element>
+                    <xs:element name="amendedDate" type="date-or-empty" minOccurs="0">
+                      <xs:annotation>
+                        <xs:documentation>
+                          Not required. The date of the amendment (yyyy-mm-dd).
+                        </xs:documentation>
+                      </xs:annotation>
+                    </xs:element>
+                    <xs:element name="amendReason" type="xs:string" minOccurs="0">
+                      <xs:annotation>
+                        <xs:documentation>
+                          Not required. The reason the payroll week was amended. Limit of 1,000 characters.
+                        </xs:documentation>
+                      </xs:annotation>
+                    </xs:element>
+                    <xs:element name="employees" minOccurs="0" maxOccurs="1">
+                      <xs:annotation>
+                        <xs:documentation>
+                          Required when noWorkPerformFlag = False. The collection of all of the employees and their payroll information that performed work on the public works projects for the provided week.
+                        </xs:documentation>
+                      </xs:annotation>
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="employee" minOccurs="1" maxOccurs="unbounded">
+                            <xs:annotation>
+                              <xs:documentation>
+                                Required. The unique record of the employee that performed work on the project for the payroll week. Duplicate employee’s with the same SSN are not allowed in the same payroll week.
+                              </xs:documentation>
+                            </xs:annotation>
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="firstName" minOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The first name of employee. Limit of 50 characters.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:minLength value="1" />
+                                      <xs:maxLength value="50" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="midName" minOccurs="0">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Not required. The middle name of employee. Limit of 50 characters.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:maxLength value="50" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="lastName" minOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The last name of employee. Limit of 50 characters.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:minLength value="1" />
+                                      <xs:maxLength value="50" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="ssn" minOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The full 9-digit social security number of the employee as required per RCW 39.12.120. SSNs in the following format will not be accepted as per the Social Security Administration: Start with “9”, “666”, “000” or have “00” in positions 4-5 or have “0000” in positions 6-9.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:pattern value="[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="ethnicity" minOccurs="0">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Not required. The ethnicity of the employee. If included, value must match one of the options enumerated below.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:enumeration value="Prefer not to answer" />
+                                      <xs:enumeration value="American Indian/Alaskan Aleut" />
+                                      <xs:enumeration value="Asian" />
+                                      <xs:enumeration value="Black or African American" />
+                                      <xs:enumeration value="Hispanic or Latino" />
+                                      <xs:enumeration value="Native Hawaiian or other Pacific Islander" />
+                                      <xs:enumeration value="White or Caucasian" />
+                                      <xs:enumeration value="Other" />
+                                      <xs:enumeration value="" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="gender" minOccurs="0">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Not required. The gender of the employee. If included, value must match one of the options enumerated below.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:enumeration value="F" />
+                                      <xs:enumeration value="M" />
+                                      <xs:enumeration value="?" />
+                                      <xs:enumeration value="" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="veteranStatus" minOccurs="0">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Not required. The US veteran status of the employee. If included, value must match one the options enumerated below.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:enumeration value="Y" />
+                                      <xs:enumeration value="N" />
+                                      <xs:enumeration value="?" />
+                                      <xs:enumeration value="" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="address1" minOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The address of the employee (line 1). Limit of 500 characters.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:minLength value="1" />
+                                      <xs:maxLength value="500" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="address2" minOccurs="0">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Not required. The address of the employee (line 2). Limit of 500 characters.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:maxLength value="500" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="city" minOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The city of the employee. Limit of 100 characters.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:minLength value="1" />
+                                      <xs:maxLength value="100" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="state" minOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The state of the employee. Must be 2 characters.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:length value="2" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="zip" minOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The zip code of the employee. Must be at least 5 and max of 10 characters.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:simpleType>
+                                    <xs:restriction base="xs:string">
+                                      <xs:minLength value="5" />
+                                      <xs:maxLength value="10" />
+                                    </xs:restriction>
+                                  </xs:simpleType>
+                                </xs:element>
+                                <xs:element name="grossPay" minOccurs="1" type="decimal-or-empty">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The gross pay of the employee for the payroll week. Includes all pay for work across all public and non-public projects for the week. May also include any reimbursements made to the employee (ex: travel, phone, etc.). Must be greater than or equal to zero with no more than 2 decimal places.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="fica" minOccurs="0" type="decimal-or-empty">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Not required. The amount of FICA deducted from the employee’s pay for the payroll week. If included, must be greater than or equal to zero with no more than 2 decimal places.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="taxWitholding" minOccurs="0" type="decimal-or-empty">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Not required. The amount of income tax withholding deducted from the employee’s pay for the payroll week. If included, must be greater than or equal to zero with no more than 2 decimal places.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                </xs:element>
+                                <xs:element name="otherDeductions" minOccurs="0" maxOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required when there are deductionName and deductionHourlyAmt elements. The collection of other amounts deducted from the employee’s pay for the payroll week.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element name="otherDeduction" minOccurs="0" maxOccurs="unbounded">
+                                        <xs:annotation>
+                                          <xs:documentation>
+                                            Required when there are deductionName and deductionHourlyAmt elements. The collection of an amount deducted from the employee’s pay for the payroll week. Multiple otherDeduction element collections may be included for one employee.
+                                          </xs:documentation>
+                                        </xs:annotation>
+                                        <xs:complexType>
+                                          <xs:sequence>
+                                            <xs:element name="deductionName" minOccurs="1">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when there is a deductionHourlyAmt element. The descriptive name of the amount deducted from the employee’s pay for the payroll week. Limit of 50 characters.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                              <xs:simpleType>
+                                                <xs:restriction base="xs:string">
+                                                  <xs:minLength value="1" />
+                                                  <xs:maxLength value="50" />
+                                                </xs:restriction>
+                                              </xs:simpleType>
+                                            </xs:element>
+                                            <xs:element name="deductionHourlyAmt" type="two-decimals-gt-zero">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when there is a deductionName element. The dollar amount of the amount deducted from the employee’s pay for the payroll week. Must be greater than zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                          </xs:sequence>
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                                <xs:element name="tradeHoursWages" minOccurs="1">
+                                  <xs:annotation>
+                                    <xs:documentation>
+                                      Required. The collection of the employee’s various trades, classifications, wage rates, and hours worked for the payroll week.
+                                    </xs:documentation>
+                                  </xs:annotation>
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element name="tradeHoursWage" minOccurs="1" maxOccurs="unbounded">
+                                        <xs:annotation>
+                                          <xs:documentation>
+                                            Required. The collection of the hours worked by the employee for a specific trade, classification, county, and wage rate. Multiple tradeHoursWage element collections must be added to the file for each different combination of county, trade, job classification, wage rate the employee worked in the payroll week.
+                                          </xs:documentation>
+                                        </xs:annotation>
+                                        <xs:complexType>
+                                          <xs:sequence>
+                                            <xs:element name="trade" minOccurs="1">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required. The four-letter code used to identify the Washington State prevailing wage trade that matches the work performed by the employee in the payroll week. Find all codes plus definitions at https://lni.wa.gov/licensing-permits/_docs/CP+Trade+Codes+%2B+Description.xlsx?language_id=1
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                              <xs:simpleType>
+                                                <xs:restriction base="xs:string">
+                                                  <xs:pattern value="[Aa][Ss][Bb][Aa]" />
+                                                  <xs:pattern value="[Bb][Oo][Ii][Ll]" />
+                                                  <xs:pattern value="[Bb][Rr][Ii][Cc]" />
+                                                  <xs:pattern value="[Bb][Rr][Ii][Kk]" />
+                                                  <xs:pattern value="[Bb][Rr][Ii][Mm]" />
+                                                  <xs:pattern value="[Bb][Uu][Ii][Ll]" />
+                                                  <xs:pattern value="[Cc][Aa][Bb][Ii]" />
+                                                  <xs:pattern value="[Cc][Aa][Rr][Pp]" />
+                                                  <xs:pattern value="[Cc][Ee][Mm][Ee]" />
+                                                  <xs:pattern value="[Dd][Ii][Vv][Ee]" />
+                                                  <xs:pattern value="[Dd][Rr][Ee][Dd]" />
+                                                  <xs:pattern value="[Dd][Rr][Yy][Aa]" />
+                                                  <xs:pattern value="[Dd][Rr][Yy][Ww]" />
+                                                  <xs:pattern value="[Ee][Ff][Ii][Xx]" />
+                                                  <xs:pattern value="[Ee][Ll][Ee][Cc]" />
+                                                  <xs:pattern value="[Ee][Ll][Ee][Mm]" />
+                                                  <xs:pattern value="[Ee][Ll][Ee][Pp]" />
+                                                  <xs:pattern value="[Ee][Ll][Ee][Vv]" />
+                                                  <xs:pattern value="[Ee][Ll][Tt][Cc]" />
+                                                  <xs:pattern value="[Ee][Ll][Tt][Ll]" />
+                                                  <xs:pattern value="[Ee][Tt][Ee][Ll]" />
+                                                  <xs:pattern value="[Ff][Aa][Bb][Rr]" />
+                                                  <xs:pattern value="[Ff][Ee][Nn][Cc]" />
+                                                  <xs:pattern value="[Ff][Ll][Aa][Gg]" />
+                                                  <xs:pattern value="[Gg][Ll][Aa][Zz]" />
+                                                  <xs:pattern value="[Hh][Ee][Aa][Ff]" />
+                                                  <xs:pattern value="[Hh][Ee][Ee][Qq]" />
+                                                  <xs:pattern value="[Hh][Oo][Dd][Cc]" />
+                                                  <xs:pattern value="[Ii][Nn][Dd][Ee]" />
+                                                  <xs:pattern value="[Ii][Nn][Dd][Pp]" />
+                                                  <xs:pattern value="[Ii][Nn][Ll][Aa]" />
+                                                  <xs:pattern value="[Ii][Nn][Ss][Pp]" />
+                                                  <xs:pattern value="[Ii][Nn][Ss][Uu]" />
+                                                  <xs:pattern value="[Ii][Rr][Oo][Nn]" />
+                                                  <xs:pattern value="[Ll][Aa][Bb][Oo]" />
+                                                  <xs:pattern value="[Ll][Aa][Bb][Uu]" />
+                                                  <xs:pattern value="[Ll][Aa][Nn][Dd]" />
+                                                  <xs:pattern value="[Ll][Aa][Nn][Mm]" />
+                                                  <xs:pattern value="[Ll][Aa][Tt][Hh]" />
+                                                  <xs:pattern value="[Mm][Aa][Cc][Hh]" />
+                                                  <xs:pattern value="[Mm][Aa][Rr][Bb]" />
+                                                  <xs:pattern value="[Mm][Ee][Tt][Aa]" />
+                                                  <xs:pattern value="[Mm][Ii][Ll][Ll]" />
+                                                  <xs:pattern value="[Mm][Oo][Dd][Uu]" />
+                                                  <xs:pattern value="[Pp][Aa][Ii][Nn]" />
+                                                  <xs:pattern value="[Pp][Ii][Ll][Ee]" />
+                                                  <xs:pattern value="[Pp][Ll][Aa][Ss]" />
+                                                  <xs:pattern value="[Pp][Ll][Aa][Yy]" />
+                                                  <xs:pattern value="[Pp][Ll][Uu][Mm]" />
+                                                  <xs:pattern value="[Pp][Oo][Ww][Ee]" />
+                                                  <xs:pattern value="[Pp][Oo][Ww][Uu]" />
+                                                  <xs:pattern value="[Pp][Tt][Rr][Ee]" />
+                                                  <xs:pattern value="[Rr][Bb][Rr][Ii]" />
+                                                  <xs:pattern value="[Rr][Ee][Ff][Rr]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Aa]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Bb]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Cc]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Dd]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Ee]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Ff]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Gg]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Ii]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Ll]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Mm]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Nn]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Oo]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Pp]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Qq]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Rr]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Ss]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Tt]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Uu]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Vv]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Ww]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Xx]" />
+                                                  <xs:pattern value="[Rr][Ee][Ss][Zz]" />
+                                                  <xs:pattern value="[Rr][Oo][Oo][Ff]" />
+                                                  <xs:pattern value="[Ss][Ee][Ww][Ee]" />
+                                                  <xs:pattern value="[Ss][Hh][Ee][Ee]" />
+                                                  <xs:pattern value="[Ss][Hh][Ii][Pp]" />
+                                                  <xs:pattern value="[Ss][Ii][Gg][Ee]" />
+                                                  <xs:pattern value="[Ss][Ii][Gg][Nn]" />
+                                                  <xs:pattern value="[Ss][Oo][Ff][Tt]" />
+                                                  <xs:pattern value="[Ss][Oo][Ll][Aa]" />
+                                                  <xs:pattern value="[Ss][Pp][Rr][Ii]" />
+                                                  <xs:pattern value="[Ss][Tt][Aa][Gg]" />
+                                                  <xs:pattern value="[Ss][Tt][Oo][Nn]" />
+                                                  <xs:pattern value="[Ss][Tt][Rr][Ee]" />
+                                                  <xs:pattern value="[Ss][Uu][Rr][Vv]" />
+                                                  <xs:pattern value="[Tt][Ee][Ll][Ee]" />
+                                                  <xs:pattern value="[Tt][Ee][Rr][Rr]" />
+                                                  <xs:pattern value="[Tt][Ii][Ll][Ff]" />
+                                                  <xs:pattern value="[Tt][Ii][Ll][Ss]" />
+                                                  <xs:pattern value="[Tt][Ii][Nn][Tt]" />
+                                                  <xs:pattern value="[Tt][Ll][Ss][Tt]" />
+                                                  <xs:pattern value="[Tt][Rr][Aa][Ff]" />
+                                                  <xs:pattern value="[Tt][Rr][Uu][Cc]" />
+                                                  <xs:pattern value="[Tt][Rr][Uu][Mm]" />
+                                                  <xs:pattern value="[Ww][Ee][Ll][Ll]" />
+                                                </xs:restriction>
+                                              </xs:simpleType>
+                                            </xs:element>
+                                            <xs:element name="jobClass" type="max-fivehundred-chars-or-empty" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when apprenticeFlg element = False. The Washington State prevailing wage job classification (occupation) that matches the work performed by the employee in the payroll week. Use LNI’s Journey Level Wage Lookup at https://secure.lni.wa.gov/wagelookup/ to find the correct classification and wage rate. Classifications and wage rates vary for each project and are based on either the Bid Due Date or Award Date - you will need to use one of those dates as the Effective Date to find the correct classifications.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="tradeNotes" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. Notes about the Davis-Bacon trade and classification or more details about the type of work performed. Limit of 100 characters.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                              <xs:simpleType>
+                                                <xs:restriction base="xs:string">
+                                                  <xs:maxLength value="100" />
+                                                </xs:restriction>
+                                              </xs:simpleType>
+                                            </xs:element>
+                                            <xs:element name="county" minOccurs="1">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required. The Washington State county in which the work was performed by the employee in the payroll week.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                              <xs:simpleType>
+                                                <xs:restriction base="xs:string">
+                                                  <xs:pattern value="[Aa][Dd][Aa][Mm][Ss]" />
+                                                  <xs:pattern value="[Aa][Ss][Oo][Tt][Ii][Nn]" />
+                                                  <xs:pattern value="[Bb][Ee][Nn][Tt][Oo][Nn]" />
+                                                  <xs:pattern value="[Cc][Hh][Ee][Ll][Aa][Nn]" />
+                                                  <xs:pattern value="[Cc][Ll][Aa][Ll][Ll][Aa][Mm]" />
+                                                  <xs:pattern value="[Cc][Ll][Aa][Rr][Kk]" />
+                                                  <xs:pattern value="[Cc][Oo][Ll][Uu][Mm][Bb][Ii][Aa]" />
+                                                  <xs:pattern value="[Cc][Oo][Ww][Ll][Ii][Tt][Zz]" />
+                                                  <xs:pattern value="[Dd][Oo][Uu][Gg][Ll][Aa][Ss]" />
+                                                  <xs:pattern value="[Ff][Ee][Rr][Rr][Yy]" />
+                                                  <xs:pattern value="[Ff][Rr][Aa][Nn][Kk][Ll][Ii][Nn]" />
+                                                  <xs:pattern value="[Gg][Aa][Rr][Ff][Ii][Ee][Ll][Dd]" />
+                                                  <xs:pattern value="[Gg][Rr][Aa][Nn][Tt]" />
+                                                  <xs:pattern value="[Gg][Rr][Aa][Yy][Ss] [Hh][Aa][Rr][Bb][Oo][Rr]" />
+                                                  <xs:pattern value="[Ii][Ss][Ll][Aa][Nn][Dd]" />
+                                                  <xs:pattern value="[Jj][Ee][Ff][Ff][Ee][Rr][Ss][Oo][Nn]" />
+                                                  <xs:pattern value="[Kk][Ii][Nn][Gg]" />
+                                                  <xs:pattern value="[Kk][Ii][Tt][Ss][Aa][Pp]" />
+                                                  <xs:pattern value="[Kk][Ii][Tt][Tt][Ii][Tt][Aa][Ss]" />
+                                                  <xs:pattern value="[Kk][Ll][Ii][Cc][Kk][Ii][Tt][Aa][Tt]" />
+                                                  <xs:pattern value="[Ll][Ee][Ww][Ii][Ss]" />
+                                                  <xs:pattern value="[Ll][Ii][Nn][Cc][Oo][Ll][Nn]" />
+                                                  <xs:pattern value="[Mm][Aa][Ss][Oo][Nn]" />
+                                                  <xs:pattern value="[Oo][Kk][Aa][Nn][Oo][Gg][Aa][Nn]" />
+                                                  <xs:pattern value="[Pp][Aa][Cc][Ii][Ff][Ii][Cc]" />
+                                                  <xs:pattern value="[Pp][Ee][Nn][Dd] [Oo][Rr][Ee][Ii][Ll][Ll][Ee]" />
+                                                  <xs:pattern value="[Pp][Ii][Ee][Rr][Cc][Ee]" />
+                                                  <xs:pattern value="[Ss][Aa][Nn] [Jj][Uu][Aa][Nn]" />
+                                                  <xs:pattern value="[Ss][Kk][Aa][Gg][Ii][Tt]" />
+                                                  <xs:pattern value="[Ss][Kk][Aa][Mm][Aa][Nn][Ii][Aa]" />
+                                                  <xs:pattern value="[Ss][Nn][Oo][Hh][Oo][Mm][Ii][Ss][Hh]" />
+                                                  <xs:pattern value="[Ss][Pp][Oo][Kk][Aa][Nn][Ee]" />
+                                                  <xs:pattern value="[Ss][Tt][Ee][Vv][Ee][Nn][Ss]" />
+                                                  <xs:pattern value="[Tt][Hh][Uu][Rr][Ss][Tt][Oo][Nn]" />
+                                                  <xs:pattern value="[Ww][Aa][Hh][Kk][Ii][Aa][Kk][Uu][Mm]" />
+                                                  <xs:pattern value="[Ww][Aa][Ll][Ll][Aa] [Ww][Aa][Ll][Ll][Aa]" />
+                                                  <xs:pattern value="[Ww][Hh][Aa][Tt][Cc][Oo][Mm]" />
+                                                  <xs:pattern value="[Ww][Hh][Ii][Tt][Mm][Aa][Nn]" />
+                                                  <xs:pattern value="[Yy][Aa][Kk][Ii][Mm][Aa]" />
+                                                </xs:restriction>
+                                              </xs:simpleType>
+                                            </xs:element>
+                                            <xs:element name="regularHourRateAmt" minOccurs="1" type="two-decimals-gt-zero">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required. The regular hourly wage rate ($/hour) the employee was paid for the hours worked in the payroll week for the trade and classification provided in this tradeHoursWage collection. Must be greater than zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="overtimeHourRateAmt" minOccurs="0" type="decimal-gt-zero-or-empty">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The overtime hourly wage rate ($/hour) the employee was paid for the hours worked in the payroll week for the trade and classification provided in this tradeHoursWage collection. If not included, the system will ask for the information during the upload process. If included, must be greater than zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="doubletimeHourRateAmt" minOccurs="0" type="decimal-gt-zero-or-empty">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The doubletime hourly wage rate ($/hour) the employee was paid for the hours worked in the payroll week for the trade and classification provided in this tradeHoursWage collection. If not included, the system will ask for the information during the upload process. If included, must be greater than zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="hourlyPensionRateAmt" minOccurs="1" type="decimal-or-empty" default="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required. The hourly retirement benefit rate ($/hour) the employee received for the hours worked in the payroll week for the trade and classification provided in this tradeHoursWage collection. Must be greater than or equal to zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="hourlyMedicalAmt" minOccurs="1" type="decimal-or-empty" default="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required. The hourly health and welfare benefit rate ($/hour) the employee received for the hours worked in the payroll week for the trade and classification provided in this tradeHoursWage collection. Must be greater than or equal to zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="hourlyVacationAmt" minOccurs="1" type="decimal-or-empty" default="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required. The hourly vacation benefit rate ($/hour) the employee received for the hours worked in the payroll week for the trade and classification provided in this tradeHoursWage collection. Must be greater than or equal to zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="hourlyHolidayAmt" minOccurs="1" type="decimal-or-empty" default="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required. The hourly paid holiday benefit rate ($/hour) the employee received for the hours worked in the payroll week for the trade and classification provided in this tradeHoursWage collection. Must be greater than or equal to zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticeBenefitAmt" minOccurs="1" type="decimal-or-empty" default="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required. The hourly apprentice training fund benefit rate ($/hour) the employee received for the hours worked in the payroll week for the trade and classification provided in this tradeHoursWage collection. Must be greater than or equal to zero with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="WageId" type="xs:string" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  OBSOLETE: This element is no longer required.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticeFlg" minOccurs="1" type="xs:boolean">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required and must be True or False. The apprentice flag indicates if the employee was working as an apprentice in the payroll week for the trade and classification provided in this tradeHoursWage collection. If True, the apprenticeID, apprenticeState, apprenticeOccpnName, apprenticeStepName, apprenticeStepBeginHours, and apprenticeStepEndHours are all required elements.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticeId" type="max-fifty-chars-or-empty" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when apprenticeFlg is True. The registered apprenticeship ID for the employee for the trade and classification provided in this tradeHoursWage collection. To find a Washington State apprentice go to https://secure.lni.wa.gov/arts-public/#/.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticeState" type="two-chars-or-empty" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when apprenticeFlg is True. The state where the employee is registered to be an apprentice. Must be either WA, OR, MT, or AK. To find a Washington State apprentice go to https://secure.lni.wa.gov/arts-public/#/.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticePgmOccpnId" type="xs:string" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  OBSOLETE: This element is no longer required.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticePgmName" type="xs:string" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  OBSOLETE: This element is no longer required.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticeOccpnName" type="max-twofiftyfive-chars-or-empty" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when apprenticeFlg is True. The prevailing wage apprentice occupation that matches the work performed by the employee in the payroll week. Use LNI’s Apprentice Wage Lookup at https://secure.lni.wa.gov/wagelookup/ApprenticeWageLookup.aspx to find the correct occupation and wage rate. Occupations and wage rates vary for each project and are based on either the Bid Due Date or Award Date - you will need to use one of those dates as the Effective Date to find the correct occupations.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticePgmOccpnStepCalcId" type="xs:string" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  OBSOLETE: This element is no longer required.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticeStepName" type="max-fifty-chars-or-empty" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when apprenticeFlg is True. The apprentice step name the employee is currently in for the apprenticeship program. Use LNI’s Apprentice Wage Lookup at https://secure.lni.wa.gov/wagelookup/ApprenticeWageLookup.aspx to find the step name.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticeStepBeginHours" type="integer-or-empty" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when apprenticeFlg is True. The apprentice step begin hours for the step the employee is currently in for the apprenticeship program. Use LNI’s Apprentice Wage Lookup at https://secure.lni.wa.gov/wagelookup/ApprenticeWageLookup.aspx to find the step name. If included, must be equal to or greater than zero with no decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="apprenticeStepEndHours" type="integer-or-empty" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required when apprenticeFlg is True. The apprentice step end hours for the step the employee is currently in for the apprenticeship program. Use LNI’s Apprentice Wage Lookup at https://secure.lni.wa.gov/wagelookup/ApprenticeWageLookup.aspx to find the step name. If entered, must be equal to or greater than zero with no decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="regularDay1Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The regular hours worked by the employee on the 1st day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="regularDay2Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The regular hours worked by the employee on the 2nd day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="regularDay3Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The regular hours worked by the employee on the 3rd day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="regularDay4Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The regular hours worked by the employee on the 4th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="regularDay5Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The regular hours worked by the employee on the 5th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="regularDay6Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The regular hours worked by the employee on the 6th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="regularDay7Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The regular hours worked by the employee on the 7th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="overtimeDay1Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The overtime hours worked by the employee on the 1st day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="overtimeDay2Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The overtime hours worked by the employee on the 2nd day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="overtimeDay3Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The overtime hours worked by the employee on the 3rd day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="overtimeDay4Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The overtime hours worked by the employee on the 4th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="overtimeDay5Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The overtime hours worked by the employee on the 5th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="overtimeDay6Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The overtime hours worked by the employee on the 6th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="overtimeDay7Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The overtime hours worked by the employee on the 7th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="doubletimeDay1Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The doubletime hours worked by the employee on the 1st day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="doubletimeDay2Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The doubletime hours worked by the employee on the 2nd day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="doubletimeDay3Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The doubletime hours worked by the employee on the 3rd day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="doubletimeDay4Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The doubletime hours worked by the employee on the 4th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="doubletimeDay5Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The doubletime hours worked by the employee on the 5th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="doubletimeDay6Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The doubletime hours worked by the employee on the 6th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="doubletimeDay7Hours" type="daily-hours" minOccurs="0">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Not required. The doubletime hours worked by the employee on the 7th day in the payroll week for the trade and classification provided in this tradeHoursWage collection. If entered, must be between 0 and 24 with no more than 2 decimal places.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                            </xs:element>
+                                            <xs:element name="tradeBenefits" minOccurs="0" maxOccurs="1">
+                                              <xs:annotation>
+                                                <xs:documentation>
+                                                  Required only when there are benefitHourlyName and benefitHourlyAmt elements. The collection of additional benefit amounts the employee received in the payroll week for the trade and classification provided in this tradeHoursWage collection.
+                                                </xs:documentation>
+                                              </xs:annotation>
+                                              <xs:complexType>
+                                                <xs:annotation>
+                                                  <xs:documentation>
+                                                    Required only when there are benefitHourlyName and benefitHourlyAmt elements. The collection of an additional benefit amount the employee received in the payroll week for the trade and classification provided in this tradeHoursWage collection. Multiple tradeBenefit element collections may be included for one employee.
+                                                  </xs:documentation>
+                                                </xs:annotation>
+                                                <xs:sequence>
+                                                  <xs:element name="tradeBenefit" minOccurs="0" maxOccurs="unbounded">
+                                                    <xs:complexType>
+                                                      <xs:sequence>
+                                                        <xs:element name="benefitHourlyName" minOccurs="1">
+                                                          <xs:annotation>
+                                                            <xs:documentation>
+                                                              Required when there is a benefitHourlyAmt element. The descriptive name of the additional benefit amount the employee received in the payroll week for the trade and classification provided in this tradeHoursWage collection. Limit of 50 characters.
+                                                            </xs:documentation>
+                                                          </xs:annotation>
+                                                          <xs:simpleType>
+                                                            <xs:restriction base="xs:string">
+                                                              <xs:minLength value="1" />
+                                                              <xs:maxLength value="50" />
+                                                            </xs:restriction>
+                                                          </xs:simpleType>
+                                                        </xs:element>
+                                                        <xs:element name="benefitHourlyAmt" type="two-decimals-gt-zero">
+                                                          <xs:annotation>
+                                                            <xs:documentation>
+                                                              Required when there is benefitHourlyName element. The dollar amount of the additional benefit amount the employee received in the payroll week for the trade and classification provided in this tradeHoursWage collection. If included, must be greater than zero with no more than 2 decimal places.
+                                                            </xs:documentation>
+                                                          </xs:annotation>
+                                                        </xs:element>
+                                                      </xs:sequence>
+                                                    </xs:complexType>
+                                                  </xs:element>
+                                                </xs:sequence>
+                                              </xs:complexType>
+                                            </xs:element>
+                                          </xs:sequence>
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:all>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
