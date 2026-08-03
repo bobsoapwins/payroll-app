@@ -1,10 +1,6 @@
 import io
-import json
-from google import genai
-from google.genai import types
 from lxml import etree
 import pandas as pd
-from pydantic import BaseModel, Field
 import streamlit as st
 
 st.set_page_config(
@@ -12,28 +8,6 @@ st.set_page_config(
 )
 
 st.title("WA State Certified Payroll (WaPWCPR) XML Generator")
-
-# Initialize Gemini Client using API Key from Streamlit Secrets
-client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
-
-
-# Define JSON structure for Gemini natural language entry
-class EmployeeEntry(BaseModel):
-    employee_id: str = Field(
-        default="", description="Employee ID (e.g. EMP01)"
-    )
-    first_name: str = Field(description="First name")
-    last_name: str = Field(description="Last name")
-    ssn: str = Field(description="9-digit Social Security Number")
-    address1: str = Field(description="Street address")
-    city: str = Field(description="City name")
-    state: str = Field(
-        description="2-letter state code (e.g. WA)", default="WA"
-    )
-    zip: str = Field(description="5-digit ZIP code")
-    gross_pay: float = Field(
-        description="Gross pay amount for the week", default=0.0
-    )
 
 
 # -------------------------------------------------------------------
@@ -116,6 +90,12 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         emp_df = emp_df[
             emp_df["Employee ID"].notna()
             & (emp_df["Employee ID"].astype(str).str.strip() != "")
+        ]
+
+    # Filter out bottom summary/math rows from Trades sheet
+    if "Trade" in trades_df.columns:
+        trades_df = trades_df[
+            trades_df["Trade"].astype(str).str.strip().str.isalpha()
         ]
 
     # Retrieve header metadata
@@ -303,7 +283,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
                     tr_node, "hourlyHolidayAmt"
                 ).text = format_rate_or_empty(tr.get("Hourly Holiday"))
 
-                # 12. apprenticeBenefitAmt (Required Tag in Sequence)
+                # 12. apprenticeBenefitAmt
                 etree.SubElement(
                     tr_node, "apprenticeBenefitAmt"
                 ).text = format_rate_or_empty(tr.get("Apprentice Benefit Amt"))
@@ -354,14 +334,14 @@ if uploaded_file:
     st.markdown("---")
     st.subheader("2. Convert & Validate XML for WA State (WaPWCPR)")
 
-    if st.button("Generate & Validate L&I XML"):
+    if st.button("Generate and Validate"):
         xml_bytes = build_wapwcpr_xml(all_sheets)
 
         is_valid, error_log = validate_xml_data(xml_bytes, "schema.xsd")
 
         if is_valid:
             st.success(
-                "XML successfully generated and passed schema validation."
+                "XML successfully generated"
             )
             st.download_button(
                 label="📥 Download Certified Payroll XML",
@@ -370,6 +350,6 @@ if uploaded_file:
                 mime="application/xml",
             )
         else:
-            st.error("XML Validation Failed. Please review the following errors:")
+            st.error("XML Validation Failed!")
             for error in error_log:
                 st.write(f"- **Line {error.line}:** {error.message}")
