@@ -7,7 +7,7 @@ st.set_page_config(
     page_title="WA State Certified Payroll Tool", page_icon="🏗️"
 )
 
-st.title("WA State Certified Payroll (WaPWCPR) XML Generator")
+st.title("🏗️ WA State Certified Payroll (WaPWCPR) XML Generator")
 
 
 # -------------------------------------------------------------------
@@ -55,6 +55,17 @@ def format_rate_or_empty(val) -> str:
         return ""
     except (ValueError, TypeError):
         return ""
+
+
+def format_hours(val) -> str:
+    """Returns formatted 1-decimal string for daily hours (e.g. '0.0', '8.0')."""
+    try:
+        if pd.isna(val):
+            return "0.0"
+        num = float(val)
+        return f"{num:.1f}"
+    except (ValueError, TypeError):
+        return "0.0"
 
 
 def clean_trade_code(val) -> str:
@@ -144,7 +155,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         if (
             pd.notna(mid_name)
             and str(mid_name).strip()
-            and str(mid_name).lower() != "nan"
+            and str(mid_name).lower() not in ["nan", "0"]
         ):
             etree.SubElement(emp_node, "midName").text = str(mid_name).strip()
 
@@ -174,7 +185,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         if (
             pd.notna(addr2)
             and str(addr2).strip()
-            and str(addr2).lower() != "nan"
+            and str(addr2).lower() not in ["nan", "0"]
         ):
             etree.SubElement(emp_node, "address2").text = str(addr2).strip()
 
@@ -199,16 +210,16 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         )
 
         fica = emp.get("FICA")
-        if pd.notna(fica) and str(fica).strip() and str(fica).lower() != "nan":
+        if pd.notna(fica) and str(fica).strip() and str(fica).lower() not in ["nan", "0"]:
             etree.SubElement(emp_node, "fica").text = f"{float(fica):.2f}"
 
         tax = emp.get("Tax Withholding")
-        if pd.notna(tax) and str(tax).strip() and str(tax).lower() != "nan":
+        if pd.notna(tax) and str(tax).strip() and str(tax).lower() not in ["nan", "0"]:
             etree.SubElement(emp_node, "taxWitholding").text = (
                 f"{float(tax):.2f}"
             )
 
-        # 3. <tradeHoursWages> (Strict Sequence Alignment)
+        # 3. <tradeHoursWages>
         trade_df_emp = trades_df[trades_df["Employee ID"] == emp_id]
         if not trade_df_emp.empty:
             trade_hw = etree.SubElement(emp_node, "tradeHoursWages")
@@ -225,7 +236,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
                 if (
                     pd.notna(jclass)
                     and str(jclass).strip()
-                    and str(jclass).lower() != "nan"
+                    and str(jclass).lower() not in ["nan", "0"]
                 ):
                     etree.SubElement(tr_node, "jobClass").text = str(
                         jclass
@@ -236,7 +247,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
                 if (
                     pd.notna(tnotes)
                     and str(tnotes).strip()
-                    and str(tnotes).lower() != "nan"
+                    and str(tnotes).lower() not in ["nan", "0"]
                 ):
                     etree.SubElement(tr_node, "tradeNotes").text = str(
                         tnotes
@@ -247,7 +258,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
                     tr.get("County")
                 )
 
-                # 5. regularHourRateAmt (Required, decimal > 0)
+                # 5. regularHourRateAmt
                 reg_rate = format_rate_or_empty(tr.get("Regular Hour Rate"))
                 etree.SubElement(tr_node, "regularHourRateAmt").text = (
                     reg_rate if reg_rate else "0.01"
@@ -288,7 +299,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
                     tr_node, "apprenticeBenefitAmt"
                 ).text = format_rate_or_empty(tr.get("Apprentice Benefit Amt"))
 
-                # 13. apprenticeFlg (Required, boolean)
+                # 13. apprenticeFlg
                 app_flag = (
                     str(tr.get("Apprentice Flg (true/false)", "false"))
                     .strip()
@@ -297,6 +308,27 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
                 etree.SubElement(tr_node, "apprenticeFlg").text = (
                     "true" if app_flag == "true" else "false"
                 )
+
+                # 14. <tradeHours> (Daily breakdown for Days 1 through 7)
+                trade_hours_node = etree.SubElement(tr_node, "tradeHours")
+
+                # Regular Day 1-7 Hours
+                for day in range(1, 8):
+                    etree.SubElement(
+                        trade_hours_node, f"regularDay{day}Hours"
+                    ).text = format_hours(tr.get(f"Reg Day {day} Hours"))
+
+                # Overtime Day 1-7 Hours
+                for day in range(1, 8):
+                    etree.SubElement(
+                        trade_hours_node, f"overtimeDay{day}Hours"
+                    ).text = format_hours(tr.get(f"OT Day {day} Hours"))
+
+                # Doubletime Day 1-7 Hours
+                for day in range(1, 8):
+                    etree.SubElement(
+                        trade_hours_node, f"doubletimeDay{day}Hours"
+                    ).text = format_hours(tr.get(f"DT Day {day} Hours"))
 
     tree = etree.ElementTree(root)
     out = io.BytesIO()
@@ -334,14 +366,14 @@ if uploaded_file:
     st.markdown("---")
     st.subheader("2. Convert & Validate XML for WA State (WaPWCPR)")
 
-    if st.button("Generate and Validate"):
+    if st.button("Generate & Validate L&I XML"):
         xml_bytes = build_wapwcpr_xml(all_sheets)
 
         is_valid, error_log = validate_xml_data(xml_bytes, "schema.xsd")
 
         if is_valid:
             st.success(
-                "XML successfully generated"
+                "✅ XML successfully generated and passed L&I schema validation!"
             )
             st.download_button(
                 label="📥 Download Certified Payroll XML",
@@ -350,6 +382,7 @@ if uploaded_file:
                 mime="application/xml",
             )
         else:
-            st.error("XML Validation Failed!")
+            st.error("❌ XML Validation Failed!")
             for error in error_log:
                 st.write(f"- **Line {error.line}:** {error.message}")
+    
