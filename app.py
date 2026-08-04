@@ -210,11 +210,19 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         )
 
         fica = emp.get("FICA")
-        if pd.notna(fica) and str(fica).strip() and str(fica).lower() not in ["nan", "0"]:
+        if (
+            pd.notna(fica)
+            and str(fica).strip()
+            and str(fica).lower() not in ["nan", "0"]
+        ):
             etree.SubElement(emp_node, "fica").text = f"{float(fica):.2f}"
 
         tax = emp.get("Tax Withholding")
-        if pd.notna(tax) and str(tax).strip() and str(tax).lower() not in ["nan", "0"]:
+        if (
+            pd.notna(tax)
+            and str(tax).strip()
+            and str(tax).lower() not in ["nan", "0"]
+        ):
             etree.SubElement(emp_node, "taxWitholding").text = (
                 f"{float(tax):.2f}"
             )
@@ -309,25 +317,23 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
                     "true" if app_flag == "true" else "false"
                 )
 
-                # 14. <tradeHours> (Daily breakdown for Days 1 through 7)
-                trade_hours_node = etree.SubElement(tr_node, "tradeHours")
-
+                # 14. Daily Hours (placed directly under <tradeHoursWage>)
                 # Regular Day 1-7 Hours
                 for day in range(1, 8):
                     etree.SubElement(
-                        trade_hours_node, f"regularDay{day}Hours"
+                        tr_node, f"regularDay{day}Hours"
                     ).text = format_hours(tr.get(f"Reg Day {day} Hours"))
 
                 # Overtime Day 1-7 Hours
                 for day in range(1, 8):
                     etree.SubElement(
-                        trade_hours_node, f"overtimeDay{day}Hours"
+                        tr_node, f"overtimeDay{day}Hours"
                     ).text = format_hours(tr.get(f"OT Day {day} Hours"))
 
                 # Doubletime Day 1-7 Hours
                 for day in range(1, 8):
                     etree.SubElement(
-                        trade_hours_node, f"doubletimeDay{day}Hours"
+                        tr_node, f"doubletimeDay{day}Hours"
                     ).text = format_hours(tr.get(f"DT Day {day} Hours"))
 
     tree = etree.ElementTree(root)
@@ -385,4 +391,4 @@ if uploaded_file:
             st.error("❌ XML Validation Failed!")
             for error in error_log:
                 st.write(f"- **Line {error.line}:** {error.message}")
-    
+        
