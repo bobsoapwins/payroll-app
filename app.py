@@ -373,7 +373,6 @@ if uploaded_file:
     st.subheader("2. Convert & Validate XML for WA State (WaPWCPR)")
 
     if st.button("Generate & Validate L&I XML"):
-    with st.spinner("Generating and validating XML..."):
         xml_bytes = build_wapwcpr_xml(all_sheets)
 
         is_valid, error_log = validate_xml_data(xml_bytes, "schema.xsd")
@@ -392,3 +391,4 @@ if uploaded_file:
             st.error("XML Validation Failed!")
             for error in error_log:
                 st.write(f"- **Line {error.line}:** {error.message}")
+        
