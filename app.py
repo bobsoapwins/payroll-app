@@ -357,12 +357,12 @@ def validate_xml_data(xml_bytes: bytes, xsd_path: str):
 # STREAMLIT UI
 # -------------------------------------------------------------------
 
-st.header("1. Upload Certified Payroll Workbook")
+st.subheader("1. Upload Certified Payroll Workbook")
 uploaded_file = st.file_uploader("Upload Spreadsheet File (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
     all_sheets = pd.read_excel(uploaded_file, sheet_name=None)
-    st.write(f"Detected {len(all_sheets)} Tabs in Workbook")
+    st.write(f"`Detected {len(all_sheets)} Tabs in Workbook`")
 
     st_tabs = st.tabs(list(all_sheets.keys()))
     for idx, (sheet_name, sheet_df) in enumerate(all_sheets.items()):
