@@ -384,7 +384,7 @@ if uploaded_file:
             st.download_button(
                 label="Download XML",
                 data=xml_bytes,
-                file_name="certified_payroll_WaPWCPR.xml",
+                file_name="validated_payroll.xml",
                 mime="application/xml",
             )
         else:
