@@ -7,7 +7,7 @@ st.set_page_config(
     page_title="WA State Certified Payroll Tool", page_icon="🏗️"
 )
 
-st.title("🏗️ WA State Certified Payroll (WaPWCPR) XML Generator")
+st.title("WA State Certified Payroll (WaPWCPR) XML Generator")
 
 
 # -------------------------------------------------------------------
@@ -379,16 +379,16 @@ if uploaded_file:
 
         if is_valid:
             st.success(
-                "✅ XML successfully generated and passed L&I schema validation!"
+                "XML generated and validated"
             )
             st.download_button(
-                label="📥 Download Certified Payroll XML",
+                label="Download XML",
                 data=xml_bytes,
                 file_name="certified_payroll_WaPWCPR.xml",
                 mime="application/xml",
             )
         else:
-            st.error("❌ XML Validation Failed!")
+            st.error("XML Validation Failed!")
             for error in error_log:
                 st.write(f"- **Line {error.line}:** {error.message}")
         
