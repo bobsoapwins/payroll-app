@@ -45,7 +45,7 @@ def format_ssn(val) -> str:
 
 
 def format_rate_or_empty(val) -> str:
-    """Returns formatted 2-decimal string if > 0, else empty string per XSD rules."""
+    """Returns formatted 2-decimal string if > 0, else empty string (for Hourly Wages)."""
     try:
         if pd.isna(val):
             return ""
@@ -55,6 +55,22 @@ def format_rate_or_empty(val) -> str:
         return ""
     except (ValueError, TypeError):
         return ""
+
+
+def format_benefit_rate(val) -> str:
+    """Returns formatted 2-decimal benefit string.
+
+    Defaults to '0.00' if 0, blank, or NaN so L&I XML contains explicit zero values.
+    """
+    try:
+        if pd.isna(val) or str(val).strip() in ["", "nan", "None"]:
+            return "0.00"
+        num = float(val)
+        if num >= 0:
+            return f"{num:.2f}"
+        return "0.00"
+    except (ValueError, TypeError):
+        return "0.00"
 
 
 def format_hours(val) -> str:
@@ -282,30 +298,30 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
                     tr_node, "doubletimeHourRateAmt"
                 ).text = format_rate_or_empty(tr.get("Doubletime Hour Rate"))
 
-                # 8. hourlyPensionRateAmt
+                # 8. hourlyPensionRateAmt (Uses format_benefit_rate)
                 etree.SubElement(
                     tr_node, "hourlyPensionRateAmt"
-                ).text = format_rate_or_empty(tr.get("Hourly Pension Rate"))
+                ).text = format_benefit_rate(tr.get("Hourly Pension Rate"))
 
-                # 9. hourlyMedicalAmt
+                # 9. hourlyMedicalAmt (Uses format_benefit_rate)
                 etree.SubElement(
                     tr_node, "hourlyMedicalAmt"
-                ).text = format_rate_or_empty(tr.get("Hourly Medical"))
+                ).text = format_benefit_rate(tr.get("Hourly Medical"))
 
-                # 10. hourlyVacationAmt
+                # 10. hourlyVacationAmt (Uses format_benefit_rate)
                 etree.SubElement(
                     tr_node, "hourlyVacationAmt"
-                ).text = format_rate_or_empty(tr.get("Hourly Vacation"))
+                ).text = format_benefit_rate(tr.get("Hourly Vacation"))
 
-                # 11. hourlyHolidayAmt
+                # 11. hourlyHolidayAmt (Uses format_benefit_rate)
                 etree.SubElement(
                     tr_node, "hourlyHolidayAmt"
-                ).text = format_rate_or_empty(tr.get("Hourly Holiday"))
+                ).text = format_benefit_rate(tr.get("Hourly Holiday"))
 
-                # 12. apprenticeBenefitAmt
+                # 12. apprenticeBenefitAmt (Uses format_benefit_rate)
                 etree.SubElement(
                     tr_node, "apprenticeBenefitAmt"
-                ).text = format_rate_or_empty(tr.get("Apprentice Benefit Amt"))
+                ).text = format_benefit_rate(tr.get("Apprentice Benefit Amt"))
 
                 # 13. apprenticeFlg
                 app_flag = (
@@ -358,7 +374,7 @@ def validate_xml_data(xml_bytes: bytes, xsd_path: str):
 # -------------------------------------------------------------------
 
 st.subheader("1. Upload Certified Payroll Workbook")
-uploaded_file = st.file_uploader("Upload Spreadsheet File (.xlsx)", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload Excel File (.xlsx)", type=["xlsx"])
 
 if uploaded_file:
     all_sheets = pd.read_excel(uploaded_file, sheet_name=None)
@@ -379,16 +395,16 @@ if uploaded_file:
 
         if is_valid:
             st.success(
-                "XML generated and validated"
+                "XML successfully generated and validated"
             )
             st.download_button(
-                label="Download XML",
+                label="Download Certified Payroll XML",
                 data=xml_bytes,
-                file_name="validated_payroll.xml",
+                file_name="certified_payroll.xml",
                 mime="application/xml",
             )
         else:
-            st.error("XML Validation Failed!")
+            st.error("XML Validation Failed")
             for error in error_log:
                 st.write(f"- **Line {error.line}:** {error.message}")
         
