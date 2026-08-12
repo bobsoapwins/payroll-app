@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="WA State Certified Payroll Tool", page_icon="🏗️"
 )
 
-st.title("🏗️ WA State Certified Payroll (WaPWCPR) XML Generator")
+st.title("WA State Certified Payroll XML Generator")
 
 
 # -------------------------------------------------------------------
@@ -449,19 +449,19 @@ if uploaded_file:
         if file_extension == "pdf":
             st.session_state.all_sheets = parse_pdf_to_workbook(uploaded_file)
             st.success(
-                "✅ PDF parsed! Review and fill in any missing employee details below."
+                "PDF parsed"
             )
         else:
             st.session_state.all_sheets = pd.read_excel(
                 uploaded_file, sheet_name=None
             )
-            st.success("✅ Excel workbook loaded successfully!")
+            st.success("Excel workbook loaded successfully")
         st.session_state.last_uploaded = uploaded_file.name
 
 if st.session_state.all_sheets:
-    st.write("### 📝 Edit Spreadsheet Data Live")
+    st.write("### Review Spreadsheet Data")
     st.info(
-        "The hours have been extracted from your file. Feel free to fill in addresses, SSNs, and pay rates right here in the table before generating your XML!"
+        "The data have been extracted from your file. Feel free to fill in addresses, SSNs, and pay rates right here in the table before generating your XML"
     )
 
     # Use Streamlit's st.data_editor so you can type changes directly into the app view
@@ -487,31 +487,31 @@ if st.session_state.all_sheets:
     output_excel.seek(0)
 
     st.download_button(
-        label="📥 Download Updated Spreadsheet (.xlsx)",
+        label="Download Updated Spreadsheet (.xlsx)",
         data=output_excel,
         file_name="updated_certified_payroll.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
     st.markdown("---")
-    st.subheader("2. Convert & Validate XML for WA State (WaPWCPR)")
+    st.subheader("2. Convert & Validate XML")
 
-    if st.button("Generate & Validate L&I XML"):
+    if st.button("Generate and Validate"):
         xml_bytes = build_wapwcpr_xml(st.session_state.all_sheets)
         is_valid, error_log = validate_xml_data(xml_bytes, "schema.xsd")
 
         if is_valid:
             st.success(
-                "✅ XML successfully generated and passed L&I schema validation!"
+                "XML successfully generated and passed L&I schema validation!"
             )
             st.download_button(
-                label="📥 Download Certified Payroll XML",
+                label="Download Payroll XML",
                 data=xml_bytes,
-                file_name="certified_payroll_WaPWCPR.xml",
+                file_name="certified_payroll.xml",
                 mime="application/xml",
             )
         else:
-            st.error("❌ XML Validation Failed!")
+            st.error("XML Validation Failed!")
             for error in error_log:
                 st.write(f"- **Line {error.line}:** {error.message}")
     
