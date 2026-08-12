@@ -459,7 +459,7 @@ if uploaded_file:
         st.session_state.last_uploaded = uploaded_file.name
 
 if st.session_state.all_sheets:
-    st.write("Review Spreadsheet Data")
+    st.write("### Review Spreadsheet Data")
     st.info(
         "The data has been extracted from your file. Feel free to fill in addresses, SSNs, and pay rates right here in the table before generating your XML"
     )
