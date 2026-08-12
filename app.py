@@ -461,7 +461,7 @@ if uploaded_file:
 if st.session_state.all_sheets:
     st.write("### Review Spreadsheet Data")
     st.info(
-        "The data have been extracted from your file. Feel free to fill in addresses, SSNs, and pay rates right here in the table before generating your XML"
+        "The data has been extracted from your file. Feel free to fill in addresses, SSNs, and pay rates right here in the table before generating your XML"
     )
 
     # Use Streamlit's st.data_editor so you can type changes directly into the app view
