@@ -502,7 +502,7 @@ if st.session_state.all_sheets:
 
         if is_valid:
             st.success(
-                "XML successfully generated and passed L&I schema validation!"
+                "XML successfully generated and validated"
             )
             st.download_button(
                 label="Download Payroll XML",
