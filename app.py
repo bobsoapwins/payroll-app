@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="WA State Certified Payroll Tool", page_icon="🏗️", layout="wide"
 )
 
-st.title("🏗️ WA State Certified Payroll (WaPWCPR) Tool")
+st.title("WA State Certified Payroll Tool")
 
 # -------------------------------------------------------------------
 # TRADE MAPPING DICTIONARY
@@ -428,8 +428,8 @@ def validate_xml_data(xml_bytes: bytes, xsd_path: str):
 # -------------------------------------------------------------------
 # STREAMLIT UI (STREAMLINED AUTO-FLOW)
 # -------------------------------------------------------------------
-st.subheader("1. Upload Timesheet PDF")
-pdf_file = st.file_uploader("Upload Timesheet PDF", type=["pdf"])
+st.subheader("Upload Timesheet PDF")
+pdf_file = st.file_uploader("Upload PDF", type=["pdf"])
 
 # Initialize session state for workbook data
 if "active_workbook" not in st.session_state:
@@ -439,11 +439,11 @@ if pdf_file:
     # Automatically parse and store straight into memory!
     st.session_state.active_workbook = parse_pdf_to_workbook(pdf_file)
     st.success(
-        "✅ Timesheet successfully parsed and loaded into the generator memory!"
+        "Timesheet generated"
     )
 
 # Optional override: If they edited an Excel spreadsheet externally and want to use that instead
-with st.expander("📁 Have an externally edited Excel file? Upload to override"):
+with st.expander("Upload a spreadsheet instead"):
     excel_file = st.file_uploader(
         "Upload Edited Excel Spreadsheet", type=["xlsx"]
     )
@@ -451,11 +451,11 @@ with st.expander("📁 Have an externally edited Excel file? Upload to override"
         st.session_state.active_workbook = pd.read_excel(
             excel_file, sheet_name=None
         )
-        st.success("✅ Overridden with your Excel file data!")
+        st.success("Timesheet generated")
 
 if st.session_state.active_workbook:
     st.markdown("---")
-    st.subheader("2. Review Extracted Data & Generate XML")
+    st.subheader("Review Extracted Data & Generate XML")
 
     # Show a quick tabs preview of what is currently loaded in memory
     preview_tabs = st.tabs(list(st.session_state.active_workbook.keys()))
@@ -475,15 +475,15 @@ if st.session_state.active_workbook:
         output_excel.seek(0)
 
         st.download_button(
-            label="📥 Download Current Spreadsheet (.xlsx)",
+            label="Download Spreadsheet",
             data=output_excel,
-            file_name="certified_payroll_current.xlsx",
+            file_name="certified_payroll.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
     with col2:
         if st.button(
-            "⚡ Generate & Validate L&I XML Directly", type="primary"
+            "Run generator and validator", type="primary"
         ):
             try:
                 xml_bytes = build_wapwcpr_xml(
@@ -495,18 +495,18 @@ if st.session_state.active_workbook:
 
                 if is_valid:
                     st.success(
-                        "✅ XML successfully generated and passed L&I schema validation!"
+                        "XML generated and validated"
                     )
                     st.download_button(
-                        label="📥 Download Certified Payroll XML",
+                        label="Download XML",
                         data=xml_bytes,
-                        file_name="certified_payroll_WaPWCPR.xml",
+                        file_name="certified_payroll.xml",
                         mime="application/xml",
                     )
                 else:
-                    st.error("❌ XML Validation Failed:")
+                    st.error("XML Validation Failed:")
                     for error in error_log:
                         st.write(f"- **Line {error.line}:** {error.message}")
             except Exception as e:
-                st.error(f"❌ Error generating XML: {e}")
+                st.error(f"Error generating XML: {e}")
                     
