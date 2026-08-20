@@ -6,22 +6,32 @@ from pypdf import PdfReader
 import streamlit as st
 
 st.set_page_config(
-    page_title="WA State Certified Payroll Tool", page_icon="🏗️", layout="wide"
+    page_title="WA State Certified Payroll Tool", layout="wide"
 )
 
-st.title("WA State Certified Payroll Tool")
+st.title("WA State Certified Payroll (WaPWCPR) Tool")
 
 # -------------------------------------------------------------------
-# TRADE MAPPING DICTIONARY
+# KNOWN PAYROLL ITEMS (EXACT STRINGS)
+# Add any other exact phrases from your timesheets here.
 # -------------------------------------------------------------------
-TRADE_MAPPING = {
-    "insulation sn": "RESI",
-    "insulation": "RESI",
-    "electrical pw hourly": "RESE",
-    "electrical": "RESE",
-    "electric": "RESE",
+KNOWN_PAYROLL_ITEMS = [
+    "SN Fridge & AC",
+    "Electrical PW Hourly",
+    "Plumbing SN",
+    "Plumbing SC",
+    "Insulation SN"
+]
+
+DAY_MAP = {
+    "mon": 1,
+    "tue": 2,
+    "wed": 3,
+    "thu": 4,
+    "fri": 5,
+    "sat": 6,
+    "sun": 7
 }
-
 
 # -------------------------------------------------------------------
 # HELPER FUNCTIONS & FORMATTERS
@@ -36,7 +46,6 @@ def map_gender(val) -> str:
         return "F"
     return "?"
 
-
 def map_veteran(val) -> str:
     if pd.isna(val) or not str(val).strip():
         return "?"
@@ -47,7 +56,6 @@ def map_veteran(val) -> str:
         return "N"
     return "?"
 
-
 def format_ssn(val) -> str:
     if pd.isna(val):
         return "000000000"
@@ -55,7 +63,6 @@ def format_ssn(val) -> str:
     if len(digits) == 9:
         return digits
     return "000000000"
-
 
 def format_rate_or_empty(val) -> str:
     try:
@@ -66,7 +73,6 @@ def format_rate_or_empty(val) -> str:
     except (ValueError, TypeError):
         return ""
 
-
 def format_benefit_rate(val) -> str:
     try:
         if pd.isna(val) or str(val).strip() in ["", "nan", "None"]:
@@ -75,7 +81,6 @@ def format_benefit_rate(val) -> str:
         return f"{num:.2f}" if num >= 0 else "0.00"
     except (ValueError, TypeError):
         return "0.00"
-
 
 def format_hours(val) -> str:
     try:
@@ -86,13 +91,9 @@ def format_hours(val) -> str:
     except (ValueError, TypeError):
         return "0.0"
 
-
 def clean_trade_code(val) -> str:
-    s = str(val).strip().upper()
-    if s.isalpha() and 3 <= len(s) <= 4:
-        return s
-    return "RESE"
-
+    # Returns the exact string for the XML, stripping outer whitespace
+    return str(val).strip()
 
 def clean_county(val) -> str:
     s = str(val).strip().lower()
@@ -100,9 +101,8 @@ def clean_county(val) -> str:
         return s
     return "skagit"
 
-
 # -------------------------------------------------------------------
-# DYNAMIC PDF PARSER
+# DYNAMIC PDF PARSER WITH AGGREGATION
 # -------------------------------------------------------------------
 def parse_pdf_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
     reader = PdfReader(uploaded_file)
@@ -113,72 +113,108 @@ def parse_pdf_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
             text += extracted + "\n"
 
     lines = [line.strip() for line in text.split("\n") if line.strip()]
-    parsed_entries = []
+    raw_entries = []
 
     i = 0
     while i < len(lines):
         line = lines[i]
+        
+        # Identify hour lines
         if re.match(r"^\d+\.\d{2}$", line):
             hrs = float(line)
-            context = lines[max(0, i - 6) : i]
+            context = lines[max(0, i - 8) : i]
             forward = lines[i + 1 : min(len(lines), i + 8)]
 
-            date_str = "2026-08-10"
+            # Extract date
+            date_str = "2026-08-10" # Default fallback
             for c in context:
                 if re.match(r"\d{2}/\d{2}/\d{4}", c):
                     date_str = c
                     break
 
+            # Extract Day of Week
+            day_val = 1 # Default to Monday
+            for c in context:
+                c_lower = c.lower()[:3]
+                if c_lower in DAY_MAP:
+                    day_val = DAY_MAP[c_lower]
+                    break
+
+            # Extract names
             first_name = context[0] if len(context) > 0 else "Unknown"
             last_name = context[1] if len(context) > 1 else "Worker"
 
-            trade_code = "RESE"
+            # Extract exact Payroll Item String
+            trade_str = "Unknown Trade"
             full_snippet = " ".join(context + [line] + forward).lower()
-            for keyword, code in TRADE_MAPPING.items():
-                if keyword in full_snippet:
-                    trade_code = code
+            for kpi in KNOWN_PAYROLL_ITEMS:
+                if kpi.lower() in full_snippet:
+                    trade_str = kpi
                     break
 
-            parsed_entries.append({
+            raw_entries.append({
                 "first": first_name,
                 "last": last_name,
-                "hours": hrs,
                 "date": date_str,
-                "trade": trade_code,
+                "day": day_val,
+                "hours": hrs,
+                "trade": trade_str,
             })
         i += 1
 
+    # AGGREGATION PHASE
+    unique_employees = {}
     emp_records = []
+    emp_counter = 1
+
+    trades_agg = {}
+
+    for entry in raw_entries:
+        name_key = (entry["first"], entry["last"])
+        
+        # 1. Group Employees (Assign one EMP ID per person)
+        if name_key not in unique_employees:
+            emp_id = f"EMP{emp_counter:02d}"
+            unique_employees[name_key] = emp_id
+            emp_counter += 1
+
+            emp_records.append({
+                "Employee ID": emp_id,
+                "Intent ID": 1657970,
+                "End of Week Date": entry["date"],
+                "No Work Performed (true/false)": False,
+                "First Name": entry["first"],
+                "Middle Name": "",
+                "Last Name": entry["last"],
+                "SSN": "",
+                "Ethnicity": "Prefer not to answer",
+                "Gender": "?",
+                "Veteran Status (Y/N/?)": "?",
+                "Address 1": "",
+                "Address 2": "",
+                "City": "",
+                "State": "WA",
+                "Zip": "",
+                "Gross Pay": 0.0,
+                "FICA": 0.0,
+                "Tax Withholding": 0.0,
+            })
+
+        # 2. Group Trades (Sum hours by Day)
+        emp_id = unique_employees[name_key]
+        trade_key = (emp_id, entry["trade"])
+        
+        if trade_key not in trades_agg:
+            trades_agg[trade_key] = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0, 6: 0.0, 7: 0.0}
+        
+        trades_agg[trade_key][entry["day"]] += entry["hours"]
+
+    # Convert aggregated trades into rows
     trades_records = []
-
-    for idx, entry in enumerate(parsed_entries, start=1):
-        emp_id = f"EMP0{idx}"
-
-        emp_records.append({
-            "Employee ID": emp_id,
-            "Intent ID": 1657970,
-            "End of Week Date": entry["date"],
-            "No Work Performed (true/false)": False,
-            "First Name": entry["first"],
-            "Middle Name": "",
-            "Last Name": entry["last"],
-            "SSN": "",
-            "Ethnicity": "Prefer not to answer",
-            "Gender": "?",
-            "Veteran Status (Y/N/?)": "?",
-            "Address 1": "",
-            "Address 2": "",
-            "City": "",
-            "State": "WA",
-            "Zip": "",
-            "Gross Pay": 0.0,
-            "FICA": 0.0,
-            "Tax Withholding": 0.0,
-        })
-
+    for (emp_id, trade_name), days_dict in trades_agg.items():
         trade_row = {
             "Employee ID": emp_id,
-            "Trade": entry["trade"],
+            "Trade": trade_name,
             "Job Class": "Journey Level",
             "Trade Notes": "",
             "County": "king",
@@ -194,7 +230,7 @@ def parse_pdf_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
         }
 
         for d in range(1, 8):
-            trade_row[f"Reg Day {d} Hours"] = entry["hours"] if d == 1 else 0.0
+            trade_row[f"Reg Day {d} Hours"] = days_dict[d]
             trade_row[f"OT Day {d} Hours"] = 0.0
             trade_row[f"DT Day {d} Hours"] = 0.0
 
@@ -204,7 +240,6 @@ def parse_pdf_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
         "Employees": pd.DataFrame(emp_records),
         "Trades": pd.DataFrame(trades_records),
     }
-
 
 # -------------------------------------------------------------------
 # XML GENERATOR
@@ -223,9 +258,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         ]
 
     if "Trade" in trades_df.columns:
-        trades_df = trades_df[
-            trades_df["Trade"].astype(str).str.strip().str.isalpha()
-        ]
+        trades_df = trades_df[trades_df["Trade"].notna()]
 
     intent_id = "0"
     end_date = "2026-08-10"
@@ -415,7 +448,6 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
     tree.write(out, pretty_print=True, xml_declaration=True, encoding="utf-8")
     return out.getvalue()
 
-
 def validate_xml_data(xml_bytes: bytes, xsd_path: str):
     with open(xsd_path, "rb") as f:
         schema_doc = etree.XML(f.read())
@@ -424,26 +456,20 @@ def validate_xml_data(xml_bytes: bytes, xsd_path: str):
     is_valid = schema.validate(xml_doc)
     return is_valid, schema.error_log
 
-
 # -------------------------------------------------------------------
-# STREAMLIT UI (STREAMLINED AUTO-FLOW)
+# STREAMLIT UI
 # -------------------------------------------------------------------
-st.subheader("Upload Timesheet PDF")
-pdf_file = st.file_uploader("Upload PDF", type=["pdf"])
+st.subheader("1. Upload Timesheet PDF")
+pdf_file = st.file_uploader("Upload Timesheet PDF", type=["pdf"])
 
-# Initialize session state for workbook data
 if "active_workbook" not in st.session_state:
     st.session_state.active_workbook = None
 
 if pdf_file:
-    # Automatically parse and store straight into memory!
     st.session_state.active_workbook = parse_pdf_to_workbook(pdf_file)
-    st.success(
-        "Timesheet generated"
-    )
+    st.success("Timesheet successfully parsed and loaded into memory.")
 
-# Optional override: If they edited an Excel spreadsheet externally and want to use that instead
-with st.expander("Upload a spreadsheet instead"):
+with st.expander("Have an externally edited Excel file? Upload to override"):
     excel_file = st.file_uploader(
         "Upload Edited Excel Spreadsheet", type=["xlsx"]
     )
@@ -451,13 +477,12 @@ with st.expander("Upload a spreadsheet instead"):
         st.session_state.active_workbook = pd.read_excel(
             excel_file, sheet_name=None
         )
-        st.success("Timesheet generated")
+        st.success("Overridden with your Excel file data.")
 
 if st.session_state.active_workbook:
     st.markdown("---")
-    st.subheader("Review Extracted Data & Generate XML")
+    st.subheader("2. Review Extracted Data & Generate XML")
 
-    # Show a quick tabs preview of what is currently loaded in memory
     preview_tabs = st.tabs(list(st.session_state.active_workbook.keys()))
     for idx, (s_name, s_df) in enumerate(
         st.session_state.active_workbook.items()
@@ -467,7 +492,6 @@ if st.session_state.active_workbook:
 
     col1, col2 = st.columns(2)
     with col1:
-        # Download button for the spreadsheet currently in memory
         output_excel = io.BytesIO()
         with pd.ExcelWriter(output_excel, engine="openpyxl") as writer:
             for s_name, s_df in st.session_state.active_workbook.items():
@@ -475,16 +499,14 @@ if st.session_state.active_workbook:
         output_excel.seek(0)
 
         st.download_button(
-            label="Download Spreadsheet",
+            label="Download Current Spreadsheet (.xlsx)",
             data=output_excel,
-            file_name="certified_payroll.xlsx",
+            file_name="certified_payroll_current.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
     with col2:
-        if st.button(
-            "Run generator and validator", type="primary"
-        ):
+        if st.button("Generate & Validate L&I XML Directly", type="primary"):
             try:
                 xml_bytes = build_wapwcpr_xml(
                     st.session_state.active_workbook
@@ -495,18 +517,17 @@ if st.session_state.active_workbook:
 
                 if is_valid:
                     st.success(
-                        "XML generated and validated"
+                        "XML successfully generated and passed L&I schema validation."
                     )
                     st.download_button(
-                        label="Download XML",
+                        label="Download Certified Payroll XML",
                         data=xml_bytes,
-                        file_name="certified_payroll.xml",
+                        file_name="certified_payroll_WaPWCPR.xml",
                         mime="application/xml",
                     )
                 else:
                     st.error("XML Validation Failed:")
                     for error in error_log:
-                        st.write(f"- **Line {error.line}:** {error.message}")
+                        st.write(f"- Line {error.line}: {error.message}")
             except Exception as e:
                 st.error(f"Error generating XML: {e}")
-                    
