@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="WA State Certified Payroll Tool", layout="wide"
 )
 
-st.title("WA State Certified Payroll (WaPWCPR) Tool")
+st.title("WA State Certified Payroll Tool")
 
 # -------------------------------------------------------------------
 # HELPER MAPPINGS & CONSTANTS
@@ -467,8 +467,8 @@ def validate_xml_data(xml_bytes: bytes, xsd_path: str):
 # -------------------------------------------------------------------
 # STREAMLIT UI
 # -------------------------------------------------------------------
-st.subheader("1. Upload Timesheet File")
-uploaded_file = st.file_uploader("Upload Timesheet (Excel .xlsx / .xls or PDF)", type=["xlsx", "xls", "pdf"])
+st.subheader("Upload Timesheet File")
+uploaded_file = st.file_uploader("Upload Timesheet", type=["xlsx", "xls", "pdf"])
 
 if "active_workbook" not in st.session_state:
     st.session_state.active_workbook = None
@@ -477,15 +477,15 @@ if uploaded_file:
     file_name = uploaded_file.name.lower()
     if file_name.endswith(".pdf"):
         st.session_state.active_workbook = parse_pdf_to_workbook(uploaded_file)
-        st.success("PDF timesheet successfully parsed and loaded into memory.")
+        st.success("PDF timesheet parsed")
     else:
         st.session_state.active_workbook = parse_excel_to_workbook(uploaded_file)
-        st.success("Excel timesheet successfully parsed and loaded into memory.")
+        st.success("Excel timesheet parsed")
 
 if st.session_state.active_workbook:
     st.markdown("---")
-    st.subheader("2. Review & Edit Extracted Data")
-    st.info("You can edit cells directly in the tables below before generating the XML.")
+    st.subheader("Review & Edit Extracted Data")
+    st.info("You can edit cells in the tables below before generating the XML by double-clicking")
 
     preview_tabs = st.tabs(list(st.session_state.active_workbook.keys()))
     updated_workbook = {}
@@ -515,12 +515,12 @@ if st.session_state.active_workbook:
         st.download_button(
             label="Download Current Spreadsheet (.xlsx)",
             data=output_excel,
-            file_name="certified_payroll_current.xlsx",
+            file_name="validated_payroll_spreadsheet.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
     with col2:
-        if st.button("Generate & Validate L&I XML Directly", type="primary"):
+        if st.button("Generate and Validate XML", type="primary"):
             try:
                 xml_bytes = build_wapwcpr_xml(st.session_state.active_workbook)
                 is_valid, error_log = validate_xml_data(xml_bytes, "schema.xsd")
@@ -528,13 +528,13 @@ if st.session_state.active_workbook:
                 if is_valid:
                     st.success("XML successfully generated and passed L&I schema validation.")
                     st.download_button(
-                        label="Download Certified Payroll XML",
+                        label="Download XML",
                         data=xml_bytes,
-                        file_name="certified_payroll_WaPWCPR.xml",
+                        file_name="validated_payroll.xml",
                         mime="application/xml",
                     )
                 else:
-                    st.error("XML Validation Failed:")
+                    st.error("XML Validation Failed")
                     for error in error_log:
                         st.write(f"- Line {error.line}: {error.message}")
             except Exception as e:
