@@ -1,8 +1,6 @@
 import io
-import re
-from lxml import etree
 import pandas as pd
-from pypdf import PdfReader
+from lxml import etree
 import streamlit as st
 
 st.set_page_config(
@@ -12,17 +10,8 @@ st.set_page_config(
 st.title("WA State Certified Payroll (WaPWCPR) Tool")
 
 # -------------------------------------------------------------------
-# KNOWN PAYROLL ITEMS (EXACT STRINGS)
-# Add any other exact phrases from your timesheets here.
+# HELPER FUNCTIONS & FORMATTERS
 # -------------------------------------------------------------------
-KNOWN_PAYROLL_ITEMS = [
-    "SN Fridge & AC",
-    "Electrical PW Hourly",
-    "Plumbing SN",
-    "Plumbing SC",
-    "Insulation SN"
-]
-
 DAY_MAP = {
     "mon": 1,
     "tue": 2,
@@ -33,9 +22,6 @@ DAY_MAP = {
     "sun": 7
 }
 
-# -------------------------------------------------------------------
-# HELPER FUNCTIONS & FORMATTERS
-# -------------------------------------------------------------------
 def map_gender(val) -> str:
     if pd.isna(val) or not str(val).strip():
         return "?"
@@ -92,7 +78,6 @@ def format_hours(val) -> str:
         return "0.0"
 
 def clean_trade_code(val) -> str:
-    # Returns the exact string for the XML, stripping outer whitespace
     return str(val).strip()
 
 def clean_county(val) -> str:
@@ -102,75 +87,40 @@ def clean_county(val) -> str:
     return "skagit"
 
 # -------------------------------------------------------------------
-# DYNAMIC PDF PARSER WITH AGGREGATION
+# EXCEL PARSER WITH AGGREGATION
 # -------------------------------------------------------------------
-def parse_pdf_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
-    reader = PdfReader(uploaded_file)
-    text = ""
-    for page in reader.pages:
-        extracted = page.extract_text()
-        if extracted:
-            text += extracted + "\n"
+def parse_excel_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
+    # Read the uploaded timesheet
+    df = pd.read_excel(uploaded_file)
+    
+    # Format Date to MM-DD-YYYY for the visible spreadsheet
+    if 'local_date' in df.columns:
+        df['local_date'] = pd.to_datetime(df['local_date']).dt.strftime('%m-%d-%Y')
+    else:
+        df['local_date'] = "01-01-2026"
 
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
-    raw_entries = []
-
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        
-        # Identify hour lines
-        if re.match(r"^\d+\.\d{2}$", line):
-            hrs = float(line)
-            context = lines[max(0, i - 8) : i]
-            forward = lines[i + 1 : min(len(lines), i + 8)]
-
-            # Extract date
-            date_str = "2026-08-10" # Default fallback
-            for c in context:
-                if re.match(r"\d{2}/\d{2}/\d{4}", c):
-                    date_str = c
-                    break
-
-            # Extract Day of Week
-            day_val = 1 # Default to Monday
-            for c in context:
-                c_lower = c.lower()[:3]
-                if c_lower in DAY_MAP:
-                    day_val = DAY_MAP[c_lower]
-                    break
-
-            # Extract names
-            first_name = context[0] if len(context) > 0 else "Unknown"
-            last_name = context[1] if len(context) > 1 else "Worker"
-
-            # Extract exact Payroll Item String
-            trade_str = "Unknown Trade"
-            full_snippet = " ".join(context + [line] + forward).lower()
-            for kpi in KNOWN_PAYROLL_ITEMS:
-                if kpi.lower() in full_snippet:
-                    trade_str = kpi
-                    break
-
-            raw_entries.append({
-                "first": first_name,
-                "last": last_name,
-                "date": date_str,
-                "day": day_val,
-                "hours": hrs,
-                "trade": trade_str,
-            })
-        i += 1
-
-    # AGGREGATION PHASE
     unique_employees = {}
     emp_records = []
     emp_counter = 1
 
     trades_agg = {}
 
-    for entry in raw_entries:
-        name_key = (entry["first"], entry["last"])
+    for _, row in df.iterrows():
+        # Clean text inputs
+        fname = str(row.get('fname', 'Unknown')).strip()
+        lname = str(row.get('lname', 'Worker')).strip()
+        date_str = str(row.get('local_date', ''))
+        
+        # Map day string to Day 1-7
+        day_str = str(row.get('local_day', 'mon')).lower().strip()[:3]
+        day_val = DAY_MAP.get(day_str, 1)
+        
+        hrs = float(row.get('hours', 0.0)) if pd.notna(row.get('hours')) else 0.0
+        
+        # Column J is 'payroll item'
+        trade_str = str(row.get('payroll item', 'Unknown Trade')).strip()
+
+        name_key = (fname, lname)
         
         # 1. Group Employees (Assign one EMP ID per person)
         if name_key not in unique_employees:
@@ -181,11 +131,11 @@ def parse_pdf_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
             emp_records.append({
                 "Employee ID": emp_id,
                 "Intent ID": 1657970,
-                "End of Week Date": entry["date"],
+                "End of Week Date": date_str,
                 "No Work Performed (true/false)": False,
-                "First Name": entry["first"],
+                "First Name": fname,
                 "Middle Name": "",
-                "Last Name": entry["last"],
+                "Last Name": lname,
                 "SSN": "",
                 "Ethnicity": "Prefer not to answer",
                 "Gender": "?",
@@ -202,12 +152,12 @@ def parse_pdf_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
 
         # 2. Group Trades (Sum hours by Day)
         emp_id = unique_employees[name_key]
-        trade_key = (emp_id, entry["trade"])
+        trade_key = (emp_id, trade_str)
         
         if trade_key not in trades_agg:
             trades_agg[trade_key] = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0, 6: 0.0, 7: 0.0}
         
-        trades_agg[trade_key][entry["day"]] += entry["hours"]
+        trades_agg[trade_key][day_val] += hrs
 
     # Convert aggregated trades into rows
     trades_records = []
@@ -263,14 +213,15 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
     intent_id = "0"
     end_date = "2026-08-10"
     if not emp_df.empty:
-        if "Intent ID" in emp_df.columns and pd.notna(
-            emp_df["Intent ID"].iloc[0]
-        ):
+        if "Intent ID" in emp_df.columns and pd.notna(emp_df["Intent ID"].iloc[0]):
             intent_id = str(int(float(emp_df["Intent ID"].iloc[0])))
-        if "End of Week Date" in emp_df.columns and pd.notna(
-            emp_df["End of Week Date"].iloc[0]
-        ):
-            end_date = str(emp_df["End of Week Date"].iloc[0]).split(" ")[0]
+        if "End of Week Date" in emp_df.columns and pd.notna(emp_df["End of Week Date"].iloc[0]):
+            raw_date = str(emp_df["End of Week Date"].iloc[0]).split(" ")[0]
+            # Safety check: convert MM-DD-YYYY back to YYYY-MM-DD for XML validity
+            try:
+                end_date = pd.to_datetime(raw_date, format="%m-%d-%Y").strftime("%Y-%m-%d")
+            except ValueError:
+                end_date = raw_date # Fallback if parsing fails
 
     root = etree.Element("WaPWCPR")
     proj_intent = etree.SubElement(root, "projectIntent")
@@ -294,11 +245,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         ).strip()
 
         mid_name = emp.get("Middle Name")
-        if (
-            pd.notna(mid_name)
-            and str(mid_name).strip()
-            and str(mid_name).lower() not in ["nan", "0"]
-        ):
+        if pd.notna(mid_name) and str(mid_name).strip() and str(mid_name).lower() not in ["nan", "0"]:
             etree.SubElement(emp_node, "midName").text = str(mid_name).strip()
 
         etree.SubElement(emp_node, "lastName").text = str(
@@ -310,138 +257,66 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         if pd.notna(eth) and str(eth).strip() and str(eth).lower() != "nan":
             etree.SubElement(emp_node, "ethnicity").text = str(eth).strip()
 
-        etree.SubElement(emp_node, "gender").text = map_gender(
-            emp.get("Gender")
-        )
-        etree.SubElement(emp_node, "veteranStatus").text = map_veteran(
-            emp.get("Veteran Status (Y/N/?)")
-        )
-        etree.SubElement(emp_node, "address1").text = str(
-            emp.get("Address 1", "")
-        ).strip()
+        etree.SubElement(emp_node, "gender").text = map_gender(emp.get("Gender"))
+        etree.SubElement(emp_node, "veteranStatus").text = map_veteran(emp.get("Veteran Status (Y/N/?)"))
+        etree.SubElement(emp_node, "address1").text = str(emp.get("Address 1", "")).strip()
 
         addr2 = emp.get("Address 2")
-        if (
-            pd.notna(addr2)
-            and str(addr2).strip()
-            and str(addr2).lower() not in ["nan", "0"]
-        ):
+        if pd.notna(addr2) and str(addr2).strip() and str(addr2).lower() not in ["nan", "0"]:
             etree.SubElement(emp_node, "address2").text = str(addr2).strip()
 
-        etree.SubElement(emp_node, "city").text = str(
-            emp.get("City", "")
-        ).strip()
+        etree.SubElement(emp_node, "city").text = str(emp.get("City", "")).strip()
         raw_state = str(emp.get("State", "WA")).strip()
-        etree.SubElement(emp_node, "state").text = (
-            "WA" if "wash" in raw_state.lower() else raw_state[:2].upper()
-        )
-        etree.SubElement(emp_node, "zip").text = str(
-            emp.get("Zip", "")
-        ).strip()
+        etree.SubElement(emp_node, "state").text = "WA" if "wash" in raw_state.lower() else raw_state[:2].upper()
+        etree.SubElement(emp_node, "zip").text = str(emp.get("Zip", "")).strip()
 
         gross = emp.get("Gross Pay", 0.0)
-        etree.SubElement(emp_node, "grossPay").text = (
-            f"{float(gross if pd.notna(gross) else 0):.2f}"
-        )
+        etree.SubElement(emp_node, "grossPay").text = f"{float(gross if pd.notna(gross) else 0):.2f}"
 
         fica = emp.get("FICA")
-        if (
-            pd.notna(fica)
-            and str(fica).strip()
-            and str(fica).lower() not in ["nan", "0"]
-        ):
+        if pd.notna(fica) and str(fica).strip() and str(fica).lower() not in ["nan", "0"]:
             etree.SubElement(emp_node, "fica").text = f"{float(fica):.2f}"
 
         tax = emp.get("Tax Withholding")
-        if (
-            pd.notna(tax)
-            and str(tax).strip()
-            and str(tax).lower() not in ["nan", "0"]
-        ):
-            etree.SubElement(emp_node, "taxWitholding").text = (
-                f"{float(tax):.2f}"
-            )
+        if pd.notna(tax) and str(tax).strip() and str(tax).lower() not in ["nan", "0"]:
+            etree.SubElement(emp_node, "taxWitholding").text = f"{float(tax):.2f}"
 
         trade_df_emp = trades_df[trades_df["Employee ID"] == emp_id]
         if not trade_df_emp.empty:
             trade_hw = etree.SubElement(emp_node, "tradeHoursWages")
             for _, tr in trade_df_emp.iterrows():
                 tr_node = etree.SubElement(trade_hw, "tradeHoursWage")
-                etree.SubElement(tr_node, "trade").text = clean_trade_code(
-                    tr.get("Trade")
-                )
+                etree.SubElement(tr_node, "trade").text = clean_trade_code(tr.get("Trade"))
 
                 jclass = tr.get("Job Class")
-                if (
-                    pd.notna(jclass)
-                    and str(jclass).strip()
-                    and str(jclass).lower() not in ["nan", "0"]
-                ):
-                    etree.SubElement(tr_node, "jobClass").text = str(
-                        jclass
-                    ).strip()
+                if pd.notna(jclass) and str(jclass).strip() and str(jclass).lower() not in ["nan", "0"]:
+                    etree.SubElement(tr_node, "jobClass").text = str(jclass).strip()
 
                 tnotes = tr.get("Trade Notes")
-                if (
-                    pd.notna(tnotes)
-                    and str(tnotes).strip()
-                    and str(tnotes).lower() not in ["nan", "0"]
-                ):
-                    etree.SubElement(tr_node, "tradeNotes").text = str(
-                        tnotes
-                    ).strip()
+                if pd.notna(tnotes) and str(tnotes).strip() and str(tnotes).lower() not in ["nan", "0"]:
+                    etree.SubElement(tr_node, "tradeNotes").text = str(tnotes).strip()
 
-                etree.SubElement(tr_node, "county").text = clean_county(
-                    tr.get("County")
-                )
+                etree.SubElement(tr_node, "county").text = clean_county(tr.get("County"))
 
                 reg_rate = format_rate_or_empty(tr.get("Regular Hour Rate"))
-                etree.SubElement(tr_node, "regularHourRateAmt").text = (
-                    reg_rate if reg_rate else "0.01"
-                )
-                etree.SubElement(
-                    tr_node, "overtimeHourRateAmt"
-                ).text = format_rate_or_empty(tr.get("Overtime Hour Rate"))
-                etree.SubElement(
-                    tr_node, "doubletimeHourRateAmt"
-                ).text = format_rate_or_empty(tr.get("Doubletime Hour Rate"))
-                etree.SubElement(
-                    tr_node, "hourlyPensionRateAmt"
-                ).text = format_benefit_rate(tr.get("Hourly Pension Rate"))
-                etree.SubElement(
-                    tr_node, "hourlyMedicalAmt"
-                ).text = format_benefit_rate(tr.get("Hourly Medical"))
-                etree.SubElement(
-                    tr_node, "hourlyVacationAmt"
-                ).text = format_benefit_rate(tr.get("Hourly Vacation"))
-                etree.SubElement(
-                    tr_node, "hourlyHolidayAmt"
-                ).text = format_benefit_rate(tr.get("Hourly Holiday"))
-                etree.SubElement(
-                    tr_node, "apprenticeBenefitAmt"
-                ).text = format_benefit_rate(tr.get("Apprentice Benefit Amt"))
+                etree.SubElement(tr_node, "regularHourRateAmt").text = reg_rate if reg_rate else "0.01"
+                etree.SubElement(tr_node, "overtimeHourRateAmt").text = format_rate_or_empty(tr.get("Overtime Hour Rate"))
+                etree.SubElement(tr_node, "doubletimeHourRateAmt").text = format_rate_or_empty(tr.get("Doubletime Hour Rate"))
+                etree.SubElement(tr_node, "hourlyPensionRateAmt").text = format_benefit_rate(tr.get("Hourly Pension Rate"))
+                etree.SubElement(tr_node, "hourlyMedicalAmt").text = format_benefit_rate(tr.get("Hourly Medical"))
+                etree.SubElement(tr_node, "hourlyVacationAmt").text = format_benefit_rate(tr.get("Hourly Vacation"))
+                etree.SubElement(tr_node, "hourlyHolidayAmt").text = format_benefit_rate(tr.get("Hourly Holiday"))
+                etree.SubElement(tr_node, "apprenticeBenefitAmt").text = format_benefit_rate(tr.get("Apprentice Benefit Amt"))
 
-                app_flag = (
-                    str(tr.get("Apprentice Flg (true/false)", "false"))
-                    .strip()
-                    .lower()
-                )
-                etree.SubElement(tr_node, "apprenticeFlg").text = (
-                    "true" if app_flag == "true" else "false"
-                )
+                app_flag = str(tr.get("Apprentice Flg (true/false)", "false")).strip().lower()
+                etree.SubElement(tr_node, "apprenticeFlg").text = "true" if app_flag == "true" else "false"
 
                 for day in range(1, 8):
-                    etree.SubElement(
-                        tr_node, f"regularDay{day}Hours"
-                    ).text = format_hours(tr.get(f"Reg Day {day} Hours"))
+                    etree.SubElement(tr_node, f"regularDay{day}Hours").text = format_hours(tr.get(f"Reg Day {day} Hours"))
                 for day in range(1, 8):
-                    etree.SubElement(
-                        tr_node, f"overtimeDay{day}Hours"
-                    ).text = format_hours(tr.get(f"OT Day {day} Hours"))
+                    etree.SubElement(tr_node, f"overtimeDay{day}Hours").text = format_hours(tr.get(f"OT Day {day} Hours"))
                 for day in range(1, 8):
-                    etree.SubElement(
-                        tr_node, f"doubletimeDay{day}Hours"
-                    ).text = format_hours(tr.get(f"DT Day {day} Hours"))
+                    etree.SubElement(tr_node, f"doubletimeDay{day}Hours").text = format_hours(tr.get(f"DT Day {day} Hours"))
 
     tree = etree.ElementTree(root)
     out = io.BytesIO()
@@ -459,23 +334,23 @@ def validate_xml_data(xml_bytes: bytes, xsd_path: str):
 # -------------------------------------------------------------------
 # STREAMLIT UI
 # -------------------------------------------------------------------
-st.subheader("1. Upload Timesheet PDF")
-pdf_file = st.file_uploader("Upload Timesheet PDF", type=["pdf"])
+st.subheader("1. Upload Excel Timesheet")
+excel_file = st.file_uploader("Upload Timesheet Export", type=["xlsx", "xls"])
 
 if "active_workbook" not in st.session_state:
     st.session_state.active_workbook = None
 
-if pdf_file:
-    st.session_state.active_workbook = parse_pdf_to_workbook(pdf_file)
-    st.success("Timesheet successfully parsed and loaded into memory.")
+if excel_file:
+    st.session_state.active_workbook = parse_excel_to_workbook(excel_file)
+    st.success("Excel timesheet successfully parsed and loaded into memory.")
 
-with st.expander("Have an externally edited Excel file? Upload to override"):
-    excel_file = st.file_uploader(
+with st.expander("Need to adjust data manually? Upload an edited template to override"):
+    override_file = st.file_uploader(
         "Upload Edited Excel Spreadsheet", type=["xlsx"]
     )
-    if excel_file:
+    if override_file:
         st.session_state.active_workbook = pd.read_excel(
-            excel_file, sheet_name=None
+            override_file, sheet_name=None
         )
         st.success("Overridden with your Excel file data.")
 
@@ -531,3 +406,4 @@ if st.session_state.active_workbook:
                         st.write(f"- Line {error.line}: {error.message}")
             except Exception as e:
                 st.error(f"Error generating XML: {e}")
+                                                
