@@ -538,7 +538,7 @@ if st.session_state.active_workbook:
     with col2:
         if st.button("Generate & Validate L&I XML Directly", type="primary"):
             try:
-             xml_bytes = build_wapwcpr_xml(st.session_state.active_workbook)
+                xml_bytes = build_wapwcpr_xml(st.session_state.active_workbook)
                 is_valid, error_log = validate_xml_data(xml_bytes, "schema.xsd")
 
                 if is_valid:
