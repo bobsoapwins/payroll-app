@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="WA State Certified Payroll Tool", layout="wide"
 )
 
-st.title("WA State Certified Payroll Tool")
+st.title("WA State Certified Payroll (WaPWCPR) Tool")
 
 # -------------------------------------------------------------------
 # HELPER MAPPINGS & CONSTANTS
@@ -104,9 +104,29 @@ def clean_county(val) -> str:
     return "skagit"
 
 # -------------------------------------------------------------------
-# PARSERS (EXCEL & PDF)
+# PARSERS & FILE HANDLERS
 # -------------------------------------------------------------------
-def parse_excel_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
+def process_uploaded_file(uploaded_file) -> dict[str, pd.DataFrame]:
+    file_name = uploaded_file.name.lower()
+
+    if file_name.endswith(".pdf"):
+        return parse_pdf_to_workbook(uploaded_file)
+
+    # Handle Excel Files
+    excel_file = pd.ExcelFile(uploaded_file)
+    sheet_names = excel_file.sheet_names
+
+    # Direct validation check: If file already has pre-formatted Employees/Trades tabs
+    if "Employees" in sheet_names and "Trades" in sheet_names:
+        workbook = {}
+        for s in sheet_names:
+            workbook[s] = pd.read_excel(excel_file, sheet_name=s)
+        return workbook
+
+    # Otherwise, parse raw export spreadsheet
+    return parse_raw_excel_to_workbook(uploaded_file)
+
+def parse_raw_excel_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
     df = pd.read_excel(uploaded_file)
     
     if 'local_date' in df.columns:
@@ -387,7 +407,7 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         etree.SubElement(emp_node, "ssn").text = format_ssn(emp.get("SSN"))
 
         eth = emp.get("Ethnicity")
-        if pd.notna(eth) and str(eth).strip() and str(eth).lower() not in ["nan", "0"]:
+        if pd.notna(eth) and str(eth).strip() and str(eth).lower() != "nan":
             etree.SubElement(emp_node, "ethnicity").text = str(eth).strip()
 
         etree.SubElement(emp_node, "gender").text = map_gender(emp.get("Gender"))
@@ -467,32 +487,29 @@ def validate_xml_data(xml_bytes: bytes, xsd_path: str):
 # -------------------------------------------------------------------
 # STREAMLIT UI
 # -------------------------------------------------------------------
-st.subheader("Upload Timesheet File")
-uploaded_file = st.file_uploader("Upload Timesheet", type=["xlsx", "xls", "pdf"])
+st.subheader("1. Upload Timesheet File or Pre-Formatted Spreadsheet")
+uploaded_file = st.file_uploader(
+    "Upload File (Raw Timesheet PDF/Excel or Pre-Formatted Spreadsheet)", 
+    type=["xlsx", "xls", "pdf"]
+)
 
 if "active_workbook" not in st.session_state:
     st.session_state.active_workbook = None
 
 if uploaded_file:
-    file_name = uploaded_file.name.lower()
-    if file_name.endswith(".pdf"):
-        st.session_state.active_workbook = parse_pdf_to_workbook(uploaded_file)
-        st.success("PDF timesheet parsed")
-    else:
-        st.session_state.active_workbook = parse_excel_to_workbook(uploaded_file)
-        st.success("Excel timesheet parsed")
+    st.session_state.active_workbook = process_uploaded_file(uploaded_file)
+    st.success("File processed and loaded successfully.")
 
 if st.session_state.active_workbook:
     st.markdown("---")
-    st.subheader("Review & Edit Extracted Data")
-    st.info("You can edit cells in the tables below before generating the XML by double-clicking")
+    st.subheader("2. Review, Edit & Validate")
+    st.info("Edit cells directly in the tables below before generating the XML.")
 
     preview_tabs = st.tabs(list(st.session_state.active_workbook.keys()))
     updated_workbook = {}
 
     for idx, (s_name, s_df) in enumerate(st.session_state.active_workbook.items()):
         with preview_tabs[idx]:
-            # st.data_editor makes the spreadsheet fully interactive and editable
             edited_df = st.data_editor(
                 s_df, 
                 key=f"editor_{s_name}", 
@@ -501,7 +518,6 @@ if st.session_state.active_workbook:
             )
             updated_workbook[s_name] = edited_df
 
-    # Save any edits back into session state
     st.session_state.active_workbook = updated_workbook
 
     col1, col2 = st.columns(2)
@@ -515,26 +531,26 @@ if st.session_state.active_workbook:
         st.download_button(
             label="Download Current Spreadsheet (.xlsx)",
             data=output_excel,
-            file_name="validated_payroll_spreadsheet.xlsx",
+            file_name="certified_payroll_current.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
     with col2:
-        if st.button("Generate and Validate XML", type="primary"):
+        if st.button("Generate & Validate L&I XML Directly", type="primary"):
             try:
-                xml_bytes = build_wapwcpr_xml(st.session_state.active_workbook)
+             xml_bytes = build_wapwcpr_xml(st.session_state.active_workbook)
                 is_valid, error_log = validate_xml_data(xml_bytes, "schema.xsd")
 
                 if is_valid:
                     st.success("XML successfully generated and passed L&I schema validation.")
                     st.download_button(
-                        label="Download XML",
+                        label="Download Certified Payroll XML",
                         data=xml_bytes,
-                        file_name="validated_payroll.xml",
+                        file_name="certified_payroll_WaPWCPR.xml",
                         mime="application/xml",
                     )
                 else:
-                    st.error("XML Validation Failed")
+                    st.error("XML Validation Failed:")
                     for error in error_log:
                         st.write(f"- Line {error.line}: {error.message}")
             except Exception as e:
