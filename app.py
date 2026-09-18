@@ -112,18 +112,15 @@ def process_uploaded_file(uploaded_file) -> dict[str, pd.DataFrame]:
     if file_name.endswith(".pdf"):
         return parse_pdf_to_workbook(uploaded_file)
 
-    # Handle Excel Files
     excel_file = pd.ExcelFile(uploaded_file)
     sheet_names = excel_file.sheet_names
 
-    # Direct validation check: If file already has pre-formatted Employees/Trades tabs
     if "Employees" in sheet_names and "Trades" in sheet_names:
         workbook = {}
         for s in sheet_names:
             workbook[s] = pd.read_excel(excel_file, sheet_name=s)
         return workbook
 
-    # Otherwise, parse raw export spreadsheet
     return parse_raw_excel_to_workbook(uploaded_file)
 
 def parse_raw_excel_to_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
@@ -365,16 +362,21 @@ def build_wapwcpr_xml(all_sheets: dict[str, pd.DataFrame]) -> bytes:
         trades_df = trades_df[trades_df["Trade"].notna()]
 
     intent_id = "0"
-    end_date = "2026-08-13"
+    end_date = "2026-08-13" # Fallback date
+    
     if not emp_df.empty:
         if "Intent ID" in emp_df.columns and pd.notna(emp_df["Intent ID"].iloc[0]):
             intent_id = str(int(float(emp_df["Intent ID"].iloc[0])))
+        
+        # Dynamically grab the date from Employees Tab, Column C (End of Week Date), Cell 2 (iloc[0])
         if "End of Week Date" in emp_df.columns and pd.notna(emp_df["End of Week Date"].iloc[0]):
-            raw_date = str(emp_df["End of Week Date"].iloc[0]).split(" ")[0]
-            try:
-                end_date = pd.to_datetime(raw_date, format="%m-%d-%Y").strftime("%Y-%m-%d")
-            except ValueError:
-                end_date = raw_date
+            raw_date = str(emp_df["End of Week Date"].iloc[0]).strip().split(" ")[0]
+            # Coerce the user input into the strict YYYY-MM-DD format L&I needs
+            parsed_date = pd.to_datetime(raw_date, errors="coerce")
+            if pd.notna(parsed_date):
+                end_date = parsed_date.strftime("%Y-%m-%d")
+            else:
+                end_date = raw_date 
 
     root = etree.Element("WaPWCPR")
     proj_intent = etree.SubElement(root, "projectIntent")
@@ -493,12 +495,20 @@ uploaded_file = st.file_uploader(
     type=["xlsx", "xls", "pdf"]
 )
 
+# Initialize Session States
 if "active_workbook" not in st.session_state:
     st.session_state.active_workbook = None
 
+if "last_processed_file_id" not in st.session_state:
+    st.session_state.last_processed_file_id = None
+
 if uploaded_file:
-    st.session_state.active_workbook = process_uploaded_file(uploaded_file)
-    st.success("File processed and loaded successfully.")
+    # Crucial Fix: Only process the file if it's a NEW upload.
+    # This prevents the app from wiping out your manual edits when you click "Generate XML"
+    if st.session_state.last_processed_file_id != uploaded_file.file_id:
+        st.session_state.active_workbook = process_uploaded_file(uploaded_file)
+        st.session_state.last_processed_file_id = uploaded_file.file_id
+        st.success("File processed and loaded successfully.")
 
 if st.session_state.active_workbook:
     st.markdown("---")
@@ -518,6 +528,7 @@ if st.session_state.active_workbook:
             )
             updated_workbook[s_name] = edited_df
 
+    # Save the updated data directly back into session state so it's ready for the XML generator
     st.session_state.active_workbook = updated_workbook
 
     col1, col2 = st.columns(2)
